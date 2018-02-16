@@ -1,0 +1,4 @@
+*.go ident 
+*.cc ident 
+*.hpp ident 
+*.h ident 

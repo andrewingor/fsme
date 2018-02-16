@@ -1,0 +1,4 @@
+# Build main.cc
+
+g++ -I../c++ main.cc
+
