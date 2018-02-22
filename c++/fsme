@@ -1,7 +1,6 @@
 // fsme: Finite State Machine Engine header
 // Copyright (C) 2018 Max Lancer https://goo.gl/CqgrAF
 
-
 #ifndef __FSME__
 #define __FSME__ 1
 
