@@ -11,62 +11,88 @@ using namespace std;
 namespace fsm {
 
 //---------
-/* engine ----------------
-	Base of FSM
+/* engine ----------
+	Base of FSMe
 --------------------------------*/
-template<  typename __iEvent
-	 , typename __oEvent
-	 , typename ___State >
+template<  typename __iEvent = uint8_t
+	 , typename __oEvent = __iEvent >
  class engine:
 	  public basic_istream<__iEvent>
 	, public basic_ostream<__oEvent> {
 private:
 	//
 public:
+	typedef	__iEvent	event_in_type;
+
 	 engine() { }
 virtual ~engine() { }
 
 const string&	rev() const {
 		static string Rev = ("$Id$"); return Rev; }
 
-	typedef __iEvent	event_input_type;
 virtual void	go(__iEvent) = 0;
 };
 
 //----------
-/* bot ----------------
-	FSM Engine robot
+/* state --------
+	FSM State
 --------------------------------*/
 template< typename __iEvent = uint8_t
-	, typename __oEvent = __iEvent
-	, typename ___State = __iEvent >
- class bot:
-	  public engine<__iEvent, __oEvent, ___State>{
+	, typename __oEvent = __iEvent >
+ class state:
+	  public engine<__iEvent, __oEvent>{
 private:
 	//
 public:
-	typedef void(*Handle)(___State*);
-	typedef	map<__iEvent, Handle>	___Handles;
-	typedef	vector<___Handles>	___Table;
-	typedef ___State		state_type;
-	typedef __iEvent		event_input_type;
-	typedef __oEvent		event_output_type;
+	//typedef void(fsm::state<__iEvent, __oEvent>::*Handle)();
+	//typedef	map<__iEvent, Handle>	___Handles;
+	typedef fsm::state<__iEvent, __oEvent>*	___State;
+	typedef __iEvent	event_in_type;
+	typedef __oEvent	event_out_type;
 
 ___State	Current;
-___Table	States;
 
 public:
-	bot () { }
-virtual	~bot () { }
-virtual	void	go(__iEvent Event) { States[Current][Event](&Current); }
+	state() { }
+virtual	~state(){ }
 
-	void transit(___State trans) { Current = trans; }
+virtual	void	go(__iEvent) = 0;
+	void	transit(___State Next) { Current = Next; }
+	
+};
 
-typename ___Table::iterator& state_begin() const { return States.begin(); }
-typename ___Table::iterator& state_end()  const { return States.end(); }
-___Table& State() { return States; }
+//----------
+/* init --------------------------
+	State of FSMe, and example
+-----------------------------------*/
+class init:
+	public state<>{
+private:
+	// -------- H A N D L E S
+static void	zero(void*_Data) { clog << "INIT::ZERO Data=3" << endl; *((int*)_Data) = 3; }
+static void	one (void*_Data) { clog << "INIT::ONE  Data=1" << endl; *((int*)_Data) = 1; }
+	//void	two(uint8_t*) { clog << "Two" << endl; }
+	//void	thr(uint8_t*) { clog << "Three" << endl; }
+	// -------- H A N D L E S
+	//
+	typedef void(*Handle)(void*);
+	typedef	map<uint8_t, Handle>	___Handles;
 
+___Handles	__Process;
+int		__Data = 0;
+
+public:
+	init() {
+		state::Current = 0;
+		__Process = {
+		  { 0, zero }
+		, { 1, one  }
+		};
+	}
+virtual	~init() { }
+
+virtual	void	go(uint8_t Event) { (*__Process[Event])(&__Data);  }
+virtual const int& data() const { return __Data; } 
 };
 
 }//namespace fsm
-
