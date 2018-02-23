@@ -1,5 +1,6 @@
-// fsme: Finite State Machine Engine header
-// Copyright (C) 2018 Max Lancer https://goo.gl/CqgrAF
+//FSME: Finite State Machine Engine
+//(c)2018 by <a href="https://goo.gl/FFF1Up">Max Lancer</a>
+//License: GNU GPLv3
 
 #ifndef __FSME__
 #define __FSME__ 1

@@ -1,25 +1,27 @@
 //FSME Example & Test
-//
+//(c)2018 by <a href="https://goo.gl/FFF1Up">Max Lancer</a>
+//License: Devil's Contract
 
 #include <iostream>
-#include "fsme"
+#include <fsme>
 
 using namespace std;
 using namespace fsm;
 
 int main (int argc, char** argv) {
 try {
-	fsm::init First;
+	fsm::simple Bot;
 
-	First << 0 << flush;
-	cout << "Data=" << First.data() << endl;
-	First.go(1);
-	cout << "Data=" << First.data() << endl;
+	Bot.go(1); cout << "	State=" << Bot.stat() << endl;
+	Bot.go(0); cout << "	State=" << Bot.stat() << endl;
+	Bot.go(0); cout << "	State=" << Bot.stat() << endl;
+	Bot.go(66);
 
 return 0;
 } catch (const exception& e) {
-	//logs << debug <<  e.what() << endl;
-	clog << e.what() << endl;
 return 1;
+} catch (...) {
+	//logs << debug <<  e.what() << endl;
+return 2;
 }}
 //EOF
