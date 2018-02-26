@@ -13,101 +13,111 @@ using namespace std;
 namespace fsm {
 
 //---------
-/* panic --------------------
+/*TODO event_traits --------------------
+	Traits Event types
+--------------------------------*/
+template <typename event_type>
+struct event_traits
+{
+typedef	uint32_t	int_type;
+//TODO...
+static	void	assign ( event_type& dst, const event_type& src ) { /* dst = src; */ }
+//TODO...
+};
+
+//---------
+/* bell --------------------
 	FSM exception
 --------------------------------*/
-class panic: public exception {
-string	What;
-//TODO Event;
+template <typename event_type = uint8_t>
+class bell:
+	  public std::string
+	, public exception {
+private:
+event_type	Event;
 public:
-	panic(const string& msg) {
-		What = msg;
-		//TODO logs << warn << What << endl; 
-		clog << What << endl;
+virtual ~bell() { }
+	explicit
+	bell(	  const event_type& event
+		, const string& __errmsg = "fsm::bell")
+	 	: string(__errmsg), Event(event) {
 	}
-virtual ~panic() { }
-virtual	const char* what() const noexcept { return What.c_str(); }
+virtual	const	char*		what()	const throw()	{ return this->c_str(); }
+	const	event_type&	event()	const		{ return Event; }
 };
 
 //---------
 /* engine --------------------
 	Base of FSMe (interface)
 --------------------------------*/
-template<  typename event_in_type = uint8_t
-	 , typename event_out_type = event_in_type 
-	 , typename state_type = event_in_type >
+template<  typename event_type = uint8_t
+	 , typename state_type = event_type
+	 , typename traits_type = event_traits<event_type> >
 class engine {
 private:
-	//
+//
 protected:
-virtual 	void	proc (const event_in_type&) = 0; //Call handler by Event
-virtual		void	transit (const state_type&) = 0; //Transit to new State
+virtual 	void	call	(const event_type&) = 0; //Call handler by Event
+virtual		void	transit	(const state_type&) = 0; //Transit to new State
 
 public:
 	 engine() { }
 virtual ~engine() { }
 
-virtual const	string&	revision() const = 0;		//Revision number, don't forget
-//TODO virtual	void clear() = 0;			//Clean up, go to begin
-//
-virtual	const	state_type& current() const = 0;	//TODO Delete it: Look inside for debugging
+virtual const	string&		revision() const = 0;	//Revision number, do not forget
+virtual	const	state_type&	current()  const = 0;	//TODO Delete it: Look inside for debugging
+virtual		void		clear() = 0;		//Clean up, get start to begin
 };//engine
 
+
 //----------
-/* state --------
-	FSM State
+/* eventbuf --------
+	I/O buffer of FSM 
 --------------------------------*/
-template< typename event_in_type = uint8_t
-	, typename event_out_type = event_in_type
-	, typename state_type = event_in_type >
- class state:
-	  public engine<event_in_type, event_out_type, state_type>
-	, public basic_istream<event_in_type>
-	, public basic_ostream<event_out_type> {
-private:
-protected:
-//proc Call process by Event
-//Fast But Dangerous: check it out for existence
-virtual		void	proc (const event_in_type& Event) {
-						(*States[Current][Event])(&Current);  }
-//transit To next (another) State
-//Fast But Dangerous: check it out for existence
-virtual		void	transit (const state_type& Next) {
-						Current = Next; }
+template<  typename event_type = uint8_t
+	 , typename state_type = event_type
+	 , typename traits_type = event_traits<event_type> >
+class
+eventbuf: virtual public fsm::engine<event_type, state_type, traits_type>
+		, public basic_stringbuf<event_type>{
+//
 public:
-//TODO basic_ostream<error_type>	err;
+	typedef basic_stringbuf<event_type>	buf_type;
+	typedef typename buf_type::char_type	char_type;
+	typedef typename buf_type::int_type	int_type;
+	typedef typename buf_type::pos_type	pos_type;
+	typedef typename buf_type::off_type	off_type;
 
 	typedef void(*Handle)(void*);
-	typedef	map<event_in_type, Handle>	Circuit;
+//
+private:
+//
+protected:
+	typedef	map<event_type, Handle>		Circuit;
 	typedef vector<Circuit>			table_of_state;
 
 table_of_state	States;
 state_type	Current;
 
-public:
-	 state() { }
-virtual	~state() { }
-//
-virtual const	string&	revision() const = 0;
-//
-virtual	const	state_type& current() const {
-					return Current; } //TODO void*__Data include Current
-};//state
+// H A N D L E S
+static void
+empty(void*) { }
 
-//----------
-/* simple ----------
-	FSMe example
----------------------------*/
-class simple:
-	public state<>{ //Event type uint8_t by default
-private:
-// -------- H A N D L E S
-static void	zero(void*_Data) {
-				cout << "Switch On" << endl; *((uint8_t*)_Data) = 1; }
-//
-static void	one (void*_Data) {
-				cout << "Switch Off" << endl; *((uint8_t*)_Data) = 0; }
-// -------- S T A T E S
+static void
+debug(void*__data) {
+	clog << "event=" << *((int_type*)__data) << endl;
+}
+static void
+zero(void*__data) {
+	cout << "Switch On" << endl;
+	*((uint8_t*)__data) = 1; //Transition to State 1
+}
+static void
+one (void*__data) {
+	cout << "Switch Off" << endl;
+	*((uint8_t*)__data) = 0; //Transition to State 0
+}
+// S T A T E S
 const Circuit switchOff {
 	  { 0, zero }
 	, { 1, one  }
@@ -116,40 +126,102 @@ const Circuit switchOn = {
 	  { 0, one }
 	, { 1, zero }
 };
-//
-protected:
-//proc Call handle of Event
-//Slow: check it out for existence State and Event
-virtual void	proc (const uint8_t& Event) 
-	{	if ( States.size() <= Current)
-			throw panic("Current State out of size");
-		if ( States[Current].end() == States[Current].find(Event))
-			throw panic("Event not found");
 
-		(*States[Current][Event])(&Current);
-	}
+virtual	void	call	(const event_type& Event)	{ (*States[Current][Event])(&Current);  }
+virtual	void	transit	(const state_type& Next)	{ Current = Next; }
 //
 public:
-	simple() {
-		state::Current = 0;
-		state::States = { switchOff , switchOn };
-		//TODO std::sort(States.begin(), States.end());
-	}
-virtual	~simple() { }
+basic_ostringstream<uint8_t>	__out; //TODO 
+//Constructor
+explicit
+eventbuf () : buf_type() {
+	Current = event_type(0);
+	States = { switchOff , switchOn };
+	//TODO std::sort(States.begin(), States.end());
+}
+//Destructor
+virtual
+~eventbuf() { }
 //
-virtual	const	string&	revision() const {
-					static string rev = ("$Id$"); return rev; }
-// Named States
-	const	string& stat() const {
-			static map<uint8_t, string> NameOf = {
-				  {0, "Switch Off"}
-				, {1, "Switch On"}
-			};
-			return NameOf[state::Current];
-		}
-//Call process by Event
-		void	go (uint8_t Event) { proc(Event); }
-};//simple
+int
+sync() {
+	while ( buf_type::in_avail()) {
+		char_type e = buf_type::sbumpc();
+		call (e);
+	}
+	return buf_type::in_avail();
+}
 
+int_type
+overflow (event_type c) {
+	cout << "OVER:" << (int_type)c << endl;
+	return 0;
+}
+int_type
+underflow() {
+	cout << "UNDER" << endl;
+	return buf_type::underflow();
+}
+int_type
+uflow() {
+	cout << "UFLOW" << endl;
+	return buf_type::uflow();
+}
+
+const
+string&
+revision() const {
+	static string rev = ("$Id$");
+	return rev;
+}
+
+virtual	const	state_type&	current() const	{ return Current; }
+virtual		void		clear() 	{ } //TODO clean up
+
+};//eventbuf ssalc
+
+//----------
+/* slowbuf ----------
+	I/O buffer slow but safe
+-------------------------------*/
+template<  typename event_type = uint8_t
+	 , typename state_type = event_type
+	 , typename traits_type = event_traits<event_type> >
+class slowbuf:
+	public eventbuf<event_type, state_type, traits_type> {
+//
+protected:
+//call Handler by Event
+virtual
+void call ( const event_type& Event) throw()
+{
+	if ( this->States.size() <= this->Current)
+		throw bell<event_type>(Event, "Current State out of size");
+
+	if ( this->States[this->Current].end() == this->States[this->Current].find(Event))
+		throw bell<event_type>(Event, "Handle of Event not exist");
+	//elsewhere
+	(*(this->States[this->Current][Event]))(&this->Current);
+}
+//
+public:
+// Named States
+const string&
+stat() const {
+	static map<event_type, string> NameOf = {
+		  {0, "Switch Off"}
+		, {1, "Switch On"}
+	};
+	return NameOf[this->Current];
+}
+
+};//slowbuf ssalc
+
+
+//----------
+/* state --------
+	FSM State
+--------------------------------*/
+//example.cc: under constract
 
 }//namespace fsm
