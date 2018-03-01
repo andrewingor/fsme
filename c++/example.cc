@@ -5,68 +5,82 @@
 using namespace std;
 using namespace fsm;
 
-namespace fsm {
-//
-class stream:
-	  public basic_istringstream<uint8_t>
-	, public basic_ostringstream<uint8_t> {
-public:
-typedef basic_istringstream<uint8_t>	istream_type;
-typedef basic_ostringstream<uint8_t>	ostream_type;
-
-private:
-basic_eventbuf<uint8_t>	__ibuf;
-basic_eventbuf<uint8_t>	__obuf;
-
-protected:
-public:
-	stream() : istream_type(), ostream_type(), __ibuf(), __obuf() {
-		istream_type::init (&__ibuf);
-		ostream_type::init (&__obuf);
-       	}
-virtual ~stream() { }
-
-inline void handle ( Handle proc) { __obuf.handle(proc); }
-
-ostream_type&
-operator<<(uint8_t e) { put(e); return (*this); }
-
-/*
-istream_type&
-operator>> (uint8_t& e) {
-}
-*/
-
-};//state ssalc
-
-}//namespace fsm
-
-//TODO 1 Output result to __Out
-inline void handler(void* __bot)
+// H A N D L E S Exapmle 
+inline void test1 (void* __bot)
 {
+	static char c = 'A';
 	fsm::engine<>* bot = (fsm::engine<>*)__bot;
-	clog << "event=" << (int)bot->state() << endl;
+
+	bot->out()->put(c++);	//Output to ostream (set it operator<<( fsm::stream) )
+	clog	<< "State=" << (int)bot->state() //Access to fsm::engine data set
+		<< " Revision=" << bot->revision() << endl;
+	bot->transit(0);	//Transition to State=0
+
 }
+inline void test2 (void* __bot) { clog << "test2" << endl; }
+inline void zero(void*__data) { clog << "OFF" << endl; }
+inline void ONE (void*__data) { clog << "ON" << endl; }
+
+// S T A T E S TEST4
+typedef	map<uint8_t, Handle>	circ;
+const circ switchOff {
+	  { 0, test1 }
+	, { 1, test1  }
+	, { 4, test1  }
+	, { 3, zero  }
+};
+const circ switchOn = {
+	  { 0, ONE  }
+	, { 1, zero }
+	, { 2, zero }
+	, { 5, zero }
+};
+const circ Enable = {
+	  { 65, ONE }
+	, { 66, test2 }
+	, { 67, zero }
+	, { 4, ONE  }
+};
+const circ Disable = {
+	  { 0, test1 }
+	, { 1, test2 }
+	, { 3, zero }
+	, { 4, ONE  }
+};
+
 
 int main (int argc, char** argv) {
 try {
-	fsm::stream io,oi;
+	typedef	vector<circ>	States;
+	States tb1 = { switchOff, switchOn };
+	States tb2 = { Enable, Disable };
 
-	//io.handle (handler);
+	fsm::stream<uint8_t> src( tb1), dst( tb2), err; 
 
-	uint8_t buff[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-	io.write(buff, 8);
-	io.put(13);
+	err.table( tb1);
 
-	io << 255 << 165 << flush;
+	dst.handle( 66, test1);
+
+	dst << src; // >> err;
+
+	src.handle( 2, test1);
+	src.handle( 3, test1);
+
+	uint8_t buff[] = { 0, 2, 3, 1, 5, 6, 7, 8 };
+	src.write(buff, 8);
+	src.put(13);
+
+	src << 255 << flush;
+
+	basic_istringstream<uint8_t> res( src.out()->str());
+
+	uint8_t c;
+	while ( res.get(c) )
+		cout << "out:" << c <<  endl;
+
+	cout << "-----------------------" << endl;
+	dst.flush();
 	
-	uint8_t in;
-	if (io >> in) do
-	{ cout << (int)in << endl;
-	} while (io >> in);
-	else
-	    cout << "got nothing" << endl;
-
 return 0;
 } catch (const exception& e) {
 	clog << "example::what()	" << e.what() << endl;
